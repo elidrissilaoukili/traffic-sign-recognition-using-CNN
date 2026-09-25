@@ -211,26 +211,6 @@ or results before the next stage needs them, so you can also stop after
 training and come back later to re-run just evaluation/benchmarking against
 the saved checkpoints.
 
-## 8. Notes on adapting the CV bullet's claims to this code
-
-- **"Fine-tuned via transfer learning"**: accurate as of the current
-  version — `FINE_TUNE_LAST_BLOCK` controls whether the last block of each
-  backbone trains alongside the new head (default `True`); setting it to
-  `False` reverts to a fully-frozen conv base, which is what capped accuracy
-  around ~50% in earlier runs.
-- **"Real-time"**: only a genuine claim once measured FPS on your target
-  hardware exceeds your target frame rate (e.g. 30 FPS for a 30fps dash-cam
-  feed). Current measured throughput is **23.8 FPS** for the full ensemble —
-  below that bar. See [Future work](#future-work) before quoting "real-time"
-  in a report or portfolio.
-- Swap `resnet50` for `resnet18`/`resnet34` in `BACKBONES` and the backbone
-  builder cell for a lighter/faster backbone if latency is the priority over
-  raw accuracy — the `BACKBONE_BUILDERS` pattern makes this a small,
-  localized change.
-- The results and latency tables above come from an actual run of this
-  notebook on the GTSRB test split — re-run the notebook on your own
-  hardware/data split if you need numbers specific to your environment.
-
 ## Future work
 
 - **Close the real-time gap.** Quantize (int8) or export the backbones to
