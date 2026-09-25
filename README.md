@@ -12,13 +12,13 @@ Implemented end-to-end in a single notebook: **`HIICNN_improved.ipynb`**.
 
 Measured on the official GTSRB test split.
 
-| Model                        | Accuracy   | Precision  | Recall     | F1         |
-|-------------------------------|:----------:|:----------:|:----------:|:----------:|
-| ResNet50                      | 81.93%     | 77.66%     | 78.02%     | 77.25%     |
-| VGG16                         | 81.38%     | 79.44%     | 77.24%     | 77.56%     |
-| EfficientNet-B0                | 56.39%     | 49.40%     | 53.71%     | 50.08%     |
-| Naive-average ensemble         | 85.54%     | 82.30%     | 81.76%     | 81.49%     |
-| **HIICNN stacking ensemble**   | **86.21%** | **85.05%** | **81.92%** | **82.92%** |
+| Model                              |     Accuracy     |    Precision    |      Recall      |        F1        |
+| ---------------------------------- | :--------------: | :--------------: | :--------------: | :--------------: |
+| ResNet50                           |      81.93%      |      77.66%      |      78.02%      |      77.25%      |
+| VGG16                              |      81.38%      |      79.44%      |      77.24%      |      77.56%      |
+| EfficientNet-B0                    |      56.39%      |      49.40%      |      53.71%      |      50.08%      |
+| Naive-average ensemble             |      85.54%      |      82.30%      |      81.76%      |      81.49%      |
+| **HIICNN stacking ensemble** | **86.21%** | **85.05%** | **81.92%** | **82.92%** |
 
 The stacking meta-learner beats every individual backbone **and** a
 naive-averaging baseline — this is the actual evidence for the "hybrid
@@ -26,12 +26,12 @@ ensemble improves robustness" claim, not just the architecture on paper.
 
 ### Inference latency (single image, batch size 1)
 
-| Model                        | ms / image | FPS    |
-|-------------------------------|:----------:|:------:|
-| ResNet50                      | 8.94        | 111.9  |
-| VGG16                         | 3.34        | 299.1  |
-| EfficientNet-B0                | 13.46       | 74.3   |
-| **HIICNN stacking ensemble**   | **42.09**   | **23.8** |
+| Model                              |   ms / image   |      FPS      |
+| ---------------------------------- | :-------------: | :------------: |
+| ResNet50                           |      8.94      |     111.9     |
+| VGG16                              |      3.34      |     299.1     |
+| EfficientNet-B0                    |      13.46      |      74.3      |
+| **HIICNN stacking ensemble** | **42.09** | **23.8** |
 
 > **Honest note on "real-time":** running all three backbones sequentially
 > plus the meta-learner currently lands at ~23.8 FPS, below the conventional
@@ -90,6 +90,8 @@ stage (`USE_CLAHE_CONTRAST`, `USE_UNSHARP_MASK`, `USE_SHARPENING`) live in the
 config cell.
 
 ### Dataset layout expected
+
+[www.kaggle.com/datasets/meowmeowmeowmeowmeow/gtsrb-german-traffic-sign](https://www.kaggle.com/datasets/meowmeowmeowmeowmeow/gtsrb-german-traffic-sign)
 
 The dataset-loading cell reads the standard Kaggle-mirror GTSRB layout,
 expected directly under `DATA_ROOT` (`data/` by default):
@@ -228,5 +230,3 @@ the saved checkpoints.
   just the clean GTSRB test set.
 
 ## License
-
-
