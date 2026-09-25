@@ -1,0 +1,13 @@
+# Environments
+.env
+env/
+venv/
+ENV/
+
+__pycache__/
+
+checkpoints/
+checkpoints_improved/
+
+data/
+

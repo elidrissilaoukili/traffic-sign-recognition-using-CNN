@@ -1,0 +1,22 @@
+--------------------------------------------
+-------------    what to do    -------------
+--------------------------------------------
+
+1. Create Python environment:
+    python -m venv env 
+
+2. Activate the environment:
+    .\env\Scripts\Activate.ps1
+
+3. Install the nessacery python tools.
+    pip install transformers datasets evaluate rouge-score bert-score nltk sentencepiece accelerate torch
+
+4. Check if GPU has the right drivers
+    nvidia-smi
+
+5. Use PyTorch GPU is supported:
+# pytorch GPU
+    pip install --force-reinstall torch torchvision torchaudio --index-url https://pytorch.org
+
+or 
+    pip install --force-reinstall torch torchvision torchaudio

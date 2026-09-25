@@ -1,0 +1,22 @@
+[
+  {
+    "model": "resnet50",
+    "ms_per_image": 3.441357500000777,
+    "fps": 290.5830039453251
+  },
+  {
+    "model": "vgg16",
+    "ms_per_image": 2.737214999997377,
+    "fps": 365.3348385132181
+  },
+  {
+    "model": "efficientnet_b0",
+    "ms_per_image": 4.606477500001347,
+    "fps": 217.08561476740255
+  },
+  {
+    "model": "HIICNN_stacking_ensemble",
+    "ms_per_image": 9.004015000000436,
+    "fps": 111.0615653128023
+  }
+]
