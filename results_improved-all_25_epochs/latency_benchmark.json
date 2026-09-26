@@ -1,0 +1,44 @@
+[
+  {
+    "model": "resnet50",
+    "ms_per_image": 19.26770550002402,
+    "fps": 51.900315790001734,
+    "fp16": true
+  },
+  {
+    "model": "vgg16",
+    "ms_per_image": 4.318732499959879,
+    "fps": 231.54941872627907,
+    "fp16": true
+  },
+  {
+    "model": "efficientnet_b0",
+    "ms_per_image": 15.07314900001802,
+    "fps": 66.34313772117588,
+    "fp16": true
+  },
+  {
+    "model": "HIICNN_full_ensemble_fp32",
+    "ms_per_image": 10.107781999977306,
+    "fps": 98.93367308497999,
+    "fp16": false
+  },
+  {
+    "model": "HIICNN_full_ensemble_fp16",
+    "ms_per_image": 13.139952499986975,
+    "fps": 76.10377586988928,
+    "fp16": true
+  },
+  {
+    "model": "HIICNN_fast_ensemble_fp32",
+    "ms_per_image": 5.0051669999811566,
+    "fps": 199.79353336337525,
+    "fp16": false
+  },
+  {
+    "model": "HIICNN_fast_ensemble_fp16",
+    "ms_per_image": 6.400496499991277,
+    "fps": 156.23787935847832,
+    "fp16": true
+  }
+]

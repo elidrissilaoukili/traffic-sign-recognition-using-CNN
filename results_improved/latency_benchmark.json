@@ -1,22 +1,44 @@
 [
   {
     "model": "resnet50",
-    "ms_per_image": 8.938818000005995,
-    "fps": 111.87161434535633
+    "ms_per_image": 5.101935999991838,
+    "fps": 196.00402670703824,
+    "fp16": true
   },
   {
     "model": "vgg16",
-    "ms_per_image": 3.3433059999879333,
-    "fps": 299.10513725145387
+    "ms_per_image": 3.8764549999905284,
+    "fps": 257.96765343656597,
+    "fp16": true
   },
   {
     "model": "efficientnet_b0",
-    "ms_per_image": 13.460152000006929,
-    "fps": 74.29336607784855
+    "ms_per_image": 6.657519500004128,
+    "fps": 150.20609402636822,
+    "fp16": true
   },
   {
-    "model": "HIICNN_stacking_ensemble",
-    "ms_per_image": 42.087044500003685,
-    "fps": 23.76028091019583
+    "model": "HIICNN_full_ensemble_fp32",
+    "ms_per_image": 9.36893649995909,
+    "fps": 106.73570047191231,
+    "fp16": false
+  },
+  {
+    "model": "HIICNN_full_ensemble_fp16",
+    "ms_per_image": 12.563902500041877,
+    "fps": 79.59310413278573,
+    "fp16": true
+  },
+  {
+    "model": "HIICNN_fast_ensemble_fp32",
+    "ms_per_image": 5.062267500034068,
+    "fps": 197.53993640068808,
+    "fp16": false
+  },
+  {
+    "model": "HIICNN_fast_ensemble_fp16",
+    "ms_per_image": 6.026952999964124,
+    "fps": 165.92132044267686,
+    "fp16": true
   }
 ]

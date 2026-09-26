@@ -3,8 +3,9 @@
 A PyTorch pipeline for the GTSRB benchmark (43 German traffic sign classes)
 combining classical image-enhancement preprocessing with a stacking ensemble
 of three ImageNet-pretrained CNN backbones — ResNet50, VGG16, and
-EfficientNet-B0 — partially fine-tuned and fused by a learned meta-learner,
-with latency/FPS reporting for a real-time autonomous-driving framing.
+EfficientNet-B0 — partially fine-tuned (with **per-backbone hyperparameters**)
+and fused by a learned meta-learner, with fp32/fp16 latency-FPS reporting for
+a real-time autonomous-driving framing.
 
 Implemented end-to-end in a single notebook: **`HIICNN_improved.ipynb`**.
 
@@ -12,32 +13,55 @@ Implemented end-to-end in a single notebook: **`HIICNN_improved.ipynb`**.
 
 Measured on the official GTSRB test split.
 
-| Model                              |     Accuracy     |    Precision    |      Recall      |        F1        |
-| ---------------------------------- | :--------------: | :--------------: | :--------------: | :--------------: |
-| ResNet50                           |      81.93%      |      77.66%      |      78.02%      |      77.25%      |
-| VGG16                              |      81.38%      |      79.44%      |      77.24%      |      77.56%      |
-| EfficientNet-B0                    |      56.39%      |      49.40%      |      53.71%      |      50.08%      |
-| Naive-average ensemble             |      85.54%      |      82.30%      |      81.76%      |      81.49%      |
-| **HIICNN stacking ensemble** | **86.21%** | **85.05%** | **81.92%** | **82.92%** |
+| Model                                    |     Accuracy      |    Precision     |      Recall       |        F1         |
+| ----------------------------------------- | :----------------: | :----------------: | :----------------: | :----------------: |
+| ResNet50                                  |       80.46%       |       74.13%       |       76.37%       |       74.54%       |
+| VGG16                                     |       80.32%       |       78.62%       |       75.86%       |       76.55%       |
+| **EfficientNet-B0**                       |   **94.34%**   |   **92.82%**   |   **93.09%**   |   **92.85%**   |
+| Naive-average ensemble (3 backbones)      |       93.77%       |       92.42%       |       92.39%       |       92.25%       |
+| HIICNN stacking ensemble (3 backbones)    |       94.11%       |       93.20%       |       92.97%       |       92.99%       |
+| HIICNN fast stacking ensemble (2 backbones, no EfficientNet-B0) |       85.16%       |       82.78%       |       80.73%       |       81.31%       |
 
-The stacking meta-learner beats every individual backbone **and** a
-naive-averaging baseline — this is the actual evidence for the "hybrid
-ensemble improves robustness" claim, not just the architecture on paper.
+Since the [Per-model hyperparameters](#3-base-models--stacking) fix (a
+deeper unfreeze, higher backbone LR, and more epochs/patience for
+EfficientNet-B0), that backbone no longer trails the other two — it now
+**leads all of them**, including the ensemble. The stacking ensemble still
+clearly beats the naive-average baseline and the 2-backbone ensemble, so
+stacking is doing real work, but with per-model tuning EfficientNet-B0 alone
+now edges out the full 3-backbone stacking ensemble by ~0.2 points of
+accuracy. In other words: the meta-learner is correctly *not* able to
+squeeze blood from a stone — it can't beat its best input by much when one
+backbone dominates the other two this heavily. Dropping ResNet50/VGG16
+instead of EfficientNet-B0, or re-weighting the stack to lean harder on
+EfficientNet-B0, is the next thing worth trying (see
+[Future work](#future-work)).
 
 ### Inference latency (single image, batch size 1)
 
-| Model                              |   ms / image   |      FPS      |
-| ---------------------------------- | :-------------: | :------------: |
-| ResNet50                           |      8.94      |     111.9     |
-| VGG16                              |      3.34      |     299.1     |
-| EfficientNet-B0                    |      13.46      |      74.3      |
-| **HIICNN stacking ensemble** | **42.09** | **23.8** |
+| Model                                       |   ms / image   |      FPS      | Precision |
+| -------------------------------------------- | :-------------: | :------------: | :-------: |
+| ResNet50                                     |      5.10      |     196.0     |   fp16   |
+| VGG16                                        |      3.88      |     258.0     |   fp16   |
+| EfficientNet-B0                              |      6.66      |     150.2     |   fp16   |
+| HIICNN full ensemble (3 backbones)           |      9.37      |     106.7     |   fp32   |
+| HIICNN full ensemble (3 backbones)           |      12.56      |      79.6      |   fp16   |
+| HIICNN fast ensemble (2 backbones)           |      5.06      |     197.5     |   fp32   |
+| HIICNN fast ensemble (2 backbones)           |      6.03      |     165.9     |   fp16   |
 
-> **Honest note on "real-time":** running all three backbones sequentially
-> plus the meta-learner currently lands at ~23.8 FPS, below the conventional
-> ≥30 FPS bar used for real-time video/perception pipelines. This is raw,
-> unoptimized inference — no quantization, ONNX/TensorRT export, or batching
-> has been applied yet. See [Future work](#future-work).
+> **Real-time target met.** With `USE_AMP` training-time mixed precision,
+> the smaller `IMAGE_SIZE=112` input, and the fp32/fp16 benchmarking added in
+> the second round of changes, the full 3-backbone HIICNN ensemble now runs
+> at **106.7 FPS (fp32)** — comfortably past the conventional ≥30 FPS
+> real-time bar, with no need to drop EfficientNet-B0 at all.
+>
+> **Counterintuitive finding:** fp16 autocast inference (`USE_AMP_INFERENCE`)
+> is actually *slower* than fp32 for both ensembles here (106.7→79.6 FPS
+> full, 197.5→165.9 FPS fast). At `batch_size=1` on these relatively small,
+> already-fast backbones, autocast's per-op dtype-casting overhead outweighs
+> any kernel speedup — fp16 tends to pay off at larger batch sizes or on
+> bigger models. So fp32 is the better choice for this single-frame
+> real-time setting, and `USE_AMP_INFERENCE` is left in the notebook mainly
+> so this trade-off is measured rather than assumed.
 
 ## 1. Architecture overview
 
@@ -54,11 +78,11 @@ raw GTSRB image
       │
       ├──────────────┬──────────────┬───────────────┐
       ▼              ▼              ▼
-  ResNet50        VGG16        EfficientNet-B0       last block of each
-  (43-way head)  (43-way head)  (43-way head)         fine-tuned at a small
-      │              │              │                 LR; new head at a
-      ▼              ▼              ▼                 larger LR
-  softmax(43)    softmax(43)    softmax(43)
+  ResNet50        VGG16        EfficientNet-B0       per-backbone unfreeze
+  (43-way head)  (43-way head)  (43-way head)         depth + LR (see
+      │              │              │                 PER_MODEL_CONFIG);
+      ▼              ▼              ▼                 new head at a
+  softmax(43)    softmax(43)    softmax(43)           larger LR
       └──────────────┴──────────────┘
                      │  concat → 129-d vector
                      ▼
@@ -68,6 +92,9 @@ raw GTSRB image
                      │
                      ▼
              Final 43-class prediction
+
+  (A second meta-learner is trained/evaluated over just ResNet50 + VGG16 —
+   see "HIICNN fast ensemble" above — for accuracy/latency comparison.)
 ```
 
 ## 2. Preprocessing / image enhancement
@@ -100,8 +127,10 @@ expected directly under `DATA_ROOT` (`data/` by default):
 data/
 ├── Train/                # per-class subfolders (0..42) of training images
 ├── Test/                 # flat folder of test images
+├── Meta/                 # per-class reference icons
 ├── Train.csv             # Width,Height,Roi.X1,Roi.Y1,Roi.X2,Roi.Y2,ClassId,Path
-└── Test.csv
+├── Test.csv
+└── Meta.csv
 ```
 
 `GTSRBCSVDataset` reads the `Path`/`ClassId` columns to locate each image and
@@ -113,68 +142,90 @@ enhancement/resize pipeline.
 
 - Each backbone (ResNet50, VGG16, EfficientNet-B0) is loaded with ImageNet
   weights via `torchvision.models`. Rather than a single frozen/unfrozen
-  switch, **only the last block of each backbone is fine-tuned**
-  (`layer4` for ResNet50, the last conv block for VGG16, the last MBConv
-  stage for EfficientNet-B0) at a small learning rate (`BACKBONE_LR = 1e-5`),
-  while a new head (`Linear → BatchNorm/ReLU → Dropout → Linear(43)`) trains
-  at a larger rate (`HEAD_LR = 1e-3`). Fully-frozen ImageNet features don't
-  transfer well to small, tightly-cropped traffic-sign icons — a domain
-  quite different from the ImageNet photos they were pretrained on — so this
-  partial fine-tuning is the main driver behind the accuracy jump from
-  ~50% (fully frozen) to ~80%+ per backbone.
+  switch, each backbone fine-tunes its **last block(s)**, while a new head
+  (`Linear → BatchNorm/ReLU → Dropout → Linear(43)`) trains on top at a
+  larger learning rate. Fully-frozen ImageNet features don't transfer well
+  to small, tightly-cropped traffic-sign icons — a domain quite different
+  from the ImageNet photos they were pretrained on — so this partial
+  fine-tuning is the main driver behind the accuracy jump from ~50% (fully
+  frozen) to 80%+/94%+ per backbone.
+- **Per-model hyperparameters** (`PER_MODEL_CONFIG`), added because a single
+  shared recipe previously left EfficientNet-B0 far behind the other two
+  backbones. Its compact, resolution-sensitive MBConv design needed more
+  capacity and time to adapt to 112×112 crops than ResNet50/VGG16 did:
+
+  | Backbone         | Unfreeze depth              | Backbone LR | Epochs | Early-stop patience |
+  | ----------------- | ---------------------------- | :---------: | :----: | :------------------: |
+  | ResNet50          | last block (`layer4`)        |    1e-5     |   20   |          5           |
+  | VGG16              | last conv block (`features[24:]`) |    1e-5     |   20   |          5           |
+  | EfficientNet-B0    | last 3 MBConv stages          |    3e-5     |   25   |         10           |
+
+  Head LR is `1e-3` for all three. This closed almost all of the
+  EfficientNet-B0 gap — see [Results](#results).
 - Training batches use **class-weighted sampling** (`USE_WEIGHTED_SAMPLER`)
   to counter GTSRB's heavy per-class imbalance, plus label smoothing, AdamW,
-  mixed precision, and an early-stopping patience of `EARLY_STOP_PATIENCE`
-  epochs; the best checkpoint (by held-out validation accuracy) is saved.
+  mixed precision, and each backbone's own early-stopping patience; the best
+  checkpoint (by held-out validation accuracy) is saved.
 - **Stacking meta-learner** (`MetaLearner`): a small MLP that takes the
-  concatenated 43-dim softmax vectors from all three backbones (129 inputs
-  total) and learns to weight/combine them into a final prediction — this is
-  what distinguishes HIICNN from a naive averaging ensemble. It's trained on
-  a held-out validation split that none of the three backbones were directly
-  trained on (correct stacking practice), using real mini-batches, AdamW,
-  and cosine LR decay, with its own held-out meta-validation slice so
-  training can be checked for convergence rather than run blind.
+  concatenated 43-dim softmax vectors from the ensemble's backbones (129
+  inputs for the full 3-backbone ensemble, 86 for the fast 2-backbone one)
+  and learns to weight/combine them into a final prediction — this is what
+  distinguishes HIICNN from a naive averaging ensemble. It's trained on a
+  held-out validation split that none of the backbones were directly trained
+  on (correct stacking practice), using real mini-batches, AdamW, and cosine
+  LR decay, with its own held-out meta-validation slice so training can be
+  checked for convergence rather than run blind.
+- **Fast 2-backbone ensemble** (`FAST_ENSEMBLE_BACKBONES = ["resnet50",
+  "vgg16"]`): a second meta-learner (`meta_learner_fast.pt`), trained and
+  evaluated/benchmarked side-by-side with the full 3-backbone ensemble, so
+  the accuracy-vs-speed trade-off of dropping EfficientNet-B0 is visible in
+  the numbers rather than assumed — see [Results](#results). With per-model
+  tuning now making EfficientNet-B0 the strongest backbone, dropping it
+  costs ~9 points of accuracy for roughly 2x the throughput, which is a much
+  worse trade than it looked like before that fix.
 - The evaluation cell also reports a **naive-average ensemble** baseline
   (simple mean of the three softmax outputs) alongside the trained stacking
-  ensemble, so the value added by the meta-learner is visible — see the
-  [Results](#results) table above.
+  ensemble, so the value added by the meta-learner is visible.
 
 ## 4. Real-time framing
 
 The benchmarking cell reports per-image latency (ms) and throughput (FPS)
-for each backbone individually and for the full HIICNN pipeline end-to-end
-(three backbones + meta-learner combined into a single forward pass via
-`EnsembleWrapper`).
+for each backbone individually, and for the full 3-backbone and fast
+2-backbone HIICNN ensembles end-to-end (backbones + meta-learner combined
+into a single forward pass via `EnsembleWrapper`) — each ensemble measured
+at both fp32 and fp16 (`USE_AMP_INFERENCE`, via `torch.autocast`).
 
 Numbers are measured with `batch_size=1` (the realistic single-frame case
 for an onboard camera), CUDA-synchronized where available, after a warmup
-period. Results are saved to `results/latency_benchmark.json`. See the
-[latency table above](#inference-latency-single-image-batch-size-1) for
-current numbers and the honest caveat on the "real-time" framing.
+period. Results are saved to `results_improved/latency_benchmark.json`. See
+the [latency table above](#inference-latency-single-image-batch-size-1) for
+current numbers, including the fp32-beats-fp16 finding at this batch size.
 
 ## 5. Evaluation
 
-On the official GTSRB test split, the evaluation cell reports for every
-backbone and for the ensemble:
+On the official GTSRB test split, the evaluation cell reports, for every
+backbone and for both ensembles (full 3-backbone and fast 2-backbone):
 
 - Accuracy
 - Macro Precision / Recall / F1-score
 - Confusion matrix (plotted per model)
-- A JSON comparison table (`results/comparison_table.json`) covering
-  single-backbone vs. stacking-ensemble vs. naive-average performance
+- A JSON comparison table (`results_improved/comparison_table.json`)
+  covering single-backbone vs. stacking-ensemble vs. naive-average vs.
+  fast-ensemble performance
 
 ## 6. Project layout
 
 ```
 HIICNN/
-├── HIICNN_improved.ipynb   # everything: config, enhancement, dataset,
-│                            # models, training, evaluation, benchmarking
-├── checkpoints/             # saved model weights (resnet50.pt, vgg16.pt,
-│                            # efficientnet_b0.pt, meta_learner.pt)
-├── results/
+├── HIICNN_improved.ipynb    # everything: config, enhancement, dataset,
+│                             # models, training, evaluation, benchmarking
+├── checkpoints_improved/     # saved model weights (resnet50.pt, vgg16.pt,
+│                             # efficientnet_b0.pt, meta_learner.pt,
+│                             # meta_learner_fast.pt)
+├── results_improved/
 │   ├── comparison_table.json     # accuracy / precision / recall / F1
-│   └── latency_benchmark.json    # ms-per-image and FPS per model
-└── data/                    # GTSRB dataset (Kaggle layout, not committed)
+│   └── latency_benchmark.json    # ms-per-image and FPS per model/precision
+└── data/                     # GTSRB dataset (Kaggle layout, not committed)
 ```
 
 ## 7. How to run
@@ -197,8 +248,9 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install pandas numpy opencv-python scikit-learn matplotlib tqdm jupyter
 ```
 
-Make sure your `data/` folder (`Train/`, `Test/`, `Train.csv`, `Test.csv`)
-sits at the project root, next to the notebook, before running.
+Make sure your `data/` folder (`Train/`, `Test/`, `Meta/`, `Train.csv`,
+`Test.csv`, `Meta.csv`) sits at the project root, next to the notebook,
+before running.
 
 ### Run
 
@@ -207,24 +259,30 @@ jupyter notebook HIICNN_improved.ipynb
 ```
 
 Run the cells top to bottom: config → enhancement → dataset/dataloaders →
-backbone/meta-learner definitions → backbone training loop → meta-learner
-training → evaluation → latency benchmark. Each stage saves its checkpoints
-or results before the next stage needs them, so you can also stop after
-training and come back later to re-run just evaluation/benchmarking against
-the saved checkpoints.
+backbone/meta-learner definitions → backbone training loop (per-model
+hyperparameters) → meta-learner training (full ensemble, then the fast
+2-backbone ensemble) → evaluation → fp32/fp16 latency benchmark. Each stage
+saves its checkpoints or results before the next stage needs them, so you
+can also stop after training and come back later to re-run just
+evaluation/benchmarking against the saved checkpoints.
 
 ## Future work
 
-- **Close the real-time gap.** Quantize (int8) or export the backbones to
-  ONNX/TensorRT, batch inference where possible, or distill the ensemble
-  into a single smaller model to push past 30 FPS.
-- **Trim the ensemble.** EfficientNet-B0 trails ResNet50 and VGG16 by a wide
-  margin (56.4% vs. 81-82%) and adds the most latency (13.46 ms/image) —
-  worth re-tuning it specifically or dropping it and re-evaluating the
-  2-model ensemble's accuracy/latency trade-off.
-- **Broader fine-tuning sweep.** Compare unfreezing one vs. two backbone
-  blocks, and try lower/higher backbone learning rates, to see how much
-  further accuracy can move.
+- **Lean into EfficientNet-B0.** Per-model tuning made it the strongest
+  backbone by a wide margin (94.3% vs. 80.3–80.5%) and it now slightly
+  outperforms the full stacking ensemble on its own. Worth trying a
+  meta-learner that weights it more heavily, or an ensemble of
+  EfficientNet-B0 with a different, more complementary second model instead
+  of ResNet50/VGG16.
+- **Investigate the fp16 slowdown.** fp16 autocast inference is slower than
+  fp32 for both ensembles at `batch_size=1`. Worth checking whether this
+  holds at larger batch sizes, whether a real TensorRT/ONNX export (rather
+  than `torch.autocast`) behaves differently, and whether it's worth keeping
+  `USE_AMP_INFERENCE` on by default at all for this deployment shape.
+- **Broader fine-tuning sweep.** Now that per-model unfreeze depth/LR/epochs
+  are configurable, sweep them further for ResNet50 and VGG16 too — they
+  still trail EfficientNet-B0 by double digits and might have their own
+  underfitting headroom.
 - **Robustness testing.** Evaluate under weather/lighting corruptions (rain,
   glare, motion blur, night) relevant to autonomous-driving deployment, not
   just the clean GTSRB test set.

@@ -8,6 +8,7 @@ __pycache__/
 
 checkpoints/
 checkpoints_improved/
+checkpoints_improved-all_25_epochs/
 
 data/
 
