@@ -19,15 +19,15 @@ Measured on the official GTSRB test split.
 
 ### Inference latency (single image, batch size 1)
 
-|                                                                | Model                                                                           | ms / image |     FPS     | Precision |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------- | :--------: | :---------: | :-------: |
-|                                                                | ResNet50                                                                        |    5.10    |    196.0    |   fp16   |
-|                                                                | EfficientNet-B0                                                                 |    6.66    |    150.2    |   fp16   |
+|                                                                | Model                                                                           |   ms / image   |       FPS       |   Precision   |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------- | :------------: | :--------------: | :------------: |
+|                                                                | ResNet50                                                                        |      5.10      |      196.0      |      fp16      |
+|                                                                | EfficientNet-B0                                                                 |      6.66      |      150.2      |      fp16      |
 |                                                                | VGG16                                                                           | **3.87** | **257.97** | **fp16** |
-| HIICNN stacking ensemble<br />*Naive-average (same latency)* | HIICNN full ensemble (3 backbones)<br />`HIICNN_full_ensemble_fp32`           |    9.37    |    106.7    |   fp32   |
-| HIICNN stacking ensemble<br />*Naive-average (same latency)*  | HIICNN full ensemble (3 backbones)<br />**`HIICNN_full_ensemble_fp16`** |   12.56   |    79.6    |   fp16   |
-| HIICNN fast stacking ensemble                                  | HIICNN fast ensemble (2 backbones)<br />`HIICNN_fast_ensemble_fp32`           |  *5.06*  |  *197.5*  |  *fp32*  |
-| HIICNN fast stacking ensemble                                  | HIICNN fast ensemble (2 backbones)<br />`HIICNN_fast_ensemble_fp16`           |    6.03    |    165.9    |   fp16   |
+| HIICNN stacking ensemble<br />*Naive-average (same latency)* | HIICNN full ensemble (3 backbones)<br />`HIICNN_full_ensemble_fp32`           |      9.37      |      106.7      |      fp32      |
+| HIICNN stacking ensemble<br />*Naive-average (same latency)* | HIICNN full ensemble (3 backbones)<br />**`HIICNN_full_ensemble_fp16`** |     12.56     |       79.6       |      fp16      |
+| HIICNN fast stacking ensemble                                  | HIICNN fast ensemble (2 backbones)<br />`HIICNN_fast_ensemble_fp32`           |    *5.06*    |    *197.5*    |    *fp32*    |
+| HIICNN fast stacking ensemble                                  | HIICNN fast ensemble (2 backbones)<br />`HIICNN_fast_ensemble_fp16`           |      6.03      |      165.9      |      fp16      |
 
 > **Real-time target met.** With `USE_AMP` training-time mixed precision, the smaller `IMAGE_SIZE=112` input, and the fp32/fp16 benchmarking added in the second round of changes, the full 3-backbone HIICNN ensemble now runs at **106.7 FPS (fp32)** — comfortably past the conventional ≥30 FPS real-time bar, with no need to drop EfficientNet-B0 at all.
 >
@@ -156,6 +156,8 @@ HIICNN/
 | `meta_learner.pt`                     |       0.11       |
 | `meta_learner_fast.pt`                |       0.09       |
 | **Total (checkpoints_improved/)** | **~625.3** |
+
+![1790462928395](image/README/1790462928395.png)
 
 VGG16 dominates the footprint by a wide margin — its dense fully-connected classifier head is much larger than ResNet50's or EfficientNet-B0's global-pooled heads, so it accounts for over 80% of the full ensemble's disk (and load-time memory) cost despite being the fastest backbone at inference. The two meta-learners are negligible in comparison (a few hundred KB combined) — nearly all of the storage cost is the three backbones themselves. Worth keeping in mind alongside the [latency table](#inference-latency-single-image-batch-size-1) if disk space or cold-start load time matters for deployment, not just FPS.
 
